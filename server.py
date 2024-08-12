@@ -1,8 +1,6 @@
-from flask import Flask, request, Response
-from zeep import Plugin, Client, xsd
-from zeep.wsdl.utils import etree_to_string
-from zeep.wsdl.bindings.soap import Soap11Binding
+from flask import Flask, request, Response, send_from_directory
 import random
+from lxml import etree
 
 app = Flask(__name__)
 
@@ -64,21 +62,15 @@ def complete_mission(name, progress):
 
 @app.route('/soap/', methods=['POST'])
 def soap():
-    envelope = request.data
-    client = Client(wsdl=None)
-    service = client.bind('AvatarService', 'AvatarServicePort')
-    binding = service._binding
+    envelope = etree.fromstring(request.data)
+    operation = envelope.find('{http://schemas.xmlsoap.org/soap/envelope/}Body').getchildren()[0].tag.split('}')[1]
 
-    action, doc = binding.process_request(envelope)
-
-    operation_name = action.split('/')[-1]
-
-    if operation_name == "createAvatar":
-        name = doc['name']
+    if operation == "createAvatar":
+        name = envelope.find('.//name').text
         result = create_avatar(name)
         response = f"<result>{result}</result>"
-    elif operation_name == "getAvatarInfo":
-        name = doc['name']
+    elif operation == "getAvatarInfo":
+        name = envelope.find('.//name').text
         avatar_info = get_avatar_info(name)
         if avatar_info:
             response = f"""
@@ -92,20 +84,20 @@ def soap():
             """
         else:
             response = "<Avatar><name>Unknown</name><level>0</level><xp>0</xp><current_mission>None</current_mission><mission_progress>0.0</mission_progress></Avatar>"
-    elif operation_name == "startMission":
-        name = doc['name']
+    elif operation == "startMission":
+        name = envelope.find('.//name').text
         result = start_mission(name)
         response = f"<result>{result}</result>"
-    elif operation_name == "completeMission":
-        name = doc['name']
-        progress = doc['progress']
+    elif operation == "completeMission":
+        name = envelope.find('.//name').text
+        progress = float(envelope.find('.//progress').text)
         result = complete_mission(name, progress)
         response = f"<result>{result}</result>"
     else:
         response = "<error>Unknown operation</error>"
 
     soap_response = f"""
-    <soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:tns="spyne.avatar">
+    <soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:tns="http://localhost:8000/soap/">
        <soapenv:Header/>
        <soapenv:Body>
           {response}
@@ -114,6 +106,10 @@ def soap():
     """
 
     return Response(soap_response, mimetype='text/xml')
+
+@app.route('/wsdl/', methods=['GET'])
+def serve_wsdl():
+    return send_from_directory(directory='.', path='avatar_service.wsdl', mimetype='text/xml')
 
 if __name__ == '__main__':
     app.run(host='127.0.0.1', port=8000)

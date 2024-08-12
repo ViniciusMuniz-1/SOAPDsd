@@ -1,49 +1,74 @@
 const soap = require('soap');
-const url = 'http://localhost:8000/?wsdl';
+const readline = require('readline');
+const url = 'http://localhost:8000/wsdl/';  // URL do WSDL
 
-function createAvatar(client, name) {
-    client.createAvatar({name: name}, function(err, result) {
-        if (err) throw err;
-        console.log(result);
-    });
-}
-
-function getAvatarInfo(client, name) {
-    client.getAvatarInfo({name: name}, function(err, result) {
-        if (err) throw err;
-        console.log(`Avatar Info: Name: ${result.name}, Level: ${result.level}, XP: ${result.xp}, Current Mission: ${result.current_mission}, Mission Progress: ${result.mission_progress * 100}%`);
-    });
-}
-
-function startMission(client, name) {
-    client.startMission({name: name}, function(err, result) {
-        if (err) throw err;
-        console.log(result);
-    });
-}
-
-function completeMission(client, name, progress) {
-    client.completeMission({name: name, progress: progress}, function(err, result) {
-        if (err) throw err;
-        console.log(result);
-    });
-}
+const rl = readline.createInterface({
+    input: process.stdin,
+    output: process.stdout
+});
 
 soap.createClient(url, function(err, client) {
     if (err) throw err;
 
-    const avatarName = 'Hero';
-    
-    // Create an avatar
-    createAvatar(client, avatarName);
-    
-    // Start a mission
-    startMission(client, avatarName);
-    
-    // Complete the mission in steps
-    completeMission(client, avatarName, 0.5);  // 50% progress
-    completeMission(client, avatarName, 0.5);  // 100% progress
+    function ask(question) {
+        return new Promise((resolve) => {
+            rl.question(question, (answer) => resolve(answer));
+        });
+    }
 
-    // Get avatar info
-    getAvatarInfo(client, avatarName);
+    async function interact() {
+        const avatarName = await ask('Enter avatar name: ');
+
+        // Create an avatar
+        client.createAvatar({name: avatarName}, function(err, result) {
+            if (err) {
+                console.error('Error creating avatar:', err);
+                rl.close();
+                return;
+            }
+            console.log('Avatar Creation Result:', result);
+
+            (async function missionFlow() {
+                const action = await ask('Choose action: (startMission/completeMission/getAvatarInfo): ');
+
+                if (action === 'startMission') {
+                    client.startMission({name: avatarName}, function(err, result) {
+                        if (err) {
+                            console.error('Error starting mission:', err);
+                            rl.close();
+                            return;
+                        }
+                        console.log('Mission Start Result:', result);
+                        missionFlow();  // Prompt for next action
+                    });
+                } else if (action === 'completeMission') {
+                    const progress = parseFloat(await ask('Enter mission progress (0-1): '));
+                    client.completeMission({name: avatarName, progress: progress}, function(err, result) {
+                        if (err) {
+                            console.error('Error completing mission:', err);
+                            rl.close();
+                            return;
+                        }
+                        console.log('Mission Completion Result:', result);
+                        missionFlow();  // Prompt for next action
+                    });
+                } else if (action === 'getAvatarInfo') {
+                    client.getAvatarInfo({name: avatarName}, function(err, result) {
+                        if (err) {
+                            console.error('Error getting avatar info:', err);
+                            rl.close();
+                            return;
+                        }
+                        console.log('Avatar Info Result:', result);
+                        missionFlow();  // Prompt for next action
+                    });
+                } else {
+                    console.log('Unknown action. Exiting...');
+                    rl.close();
+                }
+            })();
+        });
+    }
+
+    interact();
 });
