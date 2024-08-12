@@ -49,13 +49,11 @@ def soap():
     soap_envelope = request.data
     root = etree.fromstring(soap_envelope)
     
-    # Extract the answers
     answers = {}
     for elem in root.xpath('//exam:answers', namespaces={'exam': 'http://example.com/soap'}):
         for child in elem:
             answers[child.tag] = child.text
-    
-    # Determine character
+
     character = determine_character(answers)
     
     response = f'''
@@ -80,4 +78,4 @@ def determine_character(answers):
         return 'Zuko'
 
 if __name__ == '__main__':
-    app.run(port=5000)
+    app.run(host="127.0.0.1", port=5000)

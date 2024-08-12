@@ -3,11 +3,11 @@ import { parseStringPromise } from 'xml2js';
 import readlineSync from 'readline-sync';
 
 async function determineCharacter() {
-    // Perguntas para o usuário
+    // Perguntas simples para o teste
     const question1 = readlineSync.keyInYNStrict('Voce se considera um bom lider?');
     const question2 = readlineSync.keyInYNStrict('Voce gosta de aprender novas habilidades?');
 
-    // Construa o corpo da solicitação SOAP com as respostas do usuário
+    // Construindo o corpo da solicitação SOAP com as respostas
     const soapRequest = `
         <soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/"
                           xmlns:exam="http://example.com/soap">
@@ -23,7 +23,7 @@ async function determineCharacter() {
         </soapenv:Envelope>
     `;
 
-    try {
+    try {                            //MUDAR ISSO DAQUI PARA O ENDEREÇO DO SERVIDOR DITO!!!!! :D
         const response = await fetch('http://localhost:5000/soap', {
             method: 'POST',
             headers: {
